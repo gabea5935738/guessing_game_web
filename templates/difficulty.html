@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Select Difficulty</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div id="game-container">
+        <h1>Select Difficulty</h1>
+        <form method="POST" autocomplete="off">
+            <select name="difficulty" id="difficulty" onchange="showCustom()" style="margin-bottom:0.7em;">
+                <option value="easy">Easy (1-10, 3 guesses)</option>
+                <option value="medium">Medium (1-50, 5 guesses)</option>
+                <option value="hard">Hard (1-100, 10 guesses)</option>
+                <option value="custom">Custom</option>
+            </select>
+            <div id="custom-range" style="display:none; margin-top:0.5em;">
+                <label>Min: <input type="number" name="min_num" value="1" min="1" required></label>
+                <label>Max: <input type="number" name="max_num" value="100" min="1" required></label>
+                <label>Max Guesses: <input type="number" name="max_attempts" value="10" min="1" required></label>
+            </div>
+            <button type="submit" style="margin-top:1em;">Start Game</button>
+        </form>
+    </div>
+    <script>
+        function showCustom() {
+            var diff = document.getElementById('difficulty').value;
+            document.getElementById('custom-range').style.display = (diff === 'custom') ? 'block' : 'none';
+        }
+        document.getElementById('difficulty').addEventListener('change', showCustom);
+        window.onload = showCustom;
+    </script>
+    {% if session.get('debug') %}
+      <div id="debug-panel">
+        <strong>DEBUG MODE ON</strong><br>
+        <form method="post" action="/set_correct_number" style="margin:1em 0;">
+            <input type="number" name="correct_number" placeholder="Set correct number" required>
+            <button type="submit">Set Correct Number</button>
+        </form>
+        <form method="post" action="/force_next_round" style="margin:1em 0;">
+            <button type="submit">Force Next Round</button>
+        </form>
+        <form method="post" action="/set_score" style="margin:1em 0;">
+            <input type="number" name="score" placeholder="Set score" required>
+            <button type="submit">Set Score</button>
+        </form>
+        <form method="post" action="/goto_page" style="margin:1em 0;">
+            <input type="text" name="page" placeholder="Route (e.g. /, /game)" required>
+            <button type="submit">Go To Page</button>
+        </form>
+        <pre>{{ session | pprint }}</pre>
+      </div>
+    {% endif %}
+</body>
+</html>

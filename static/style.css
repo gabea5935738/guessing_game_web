@@ -1,0 +1,123 @@
+input {
+    font-size: 1em;
+    padding: 0.5em;
+}
+#debug-panel {
+    position: fixed;
+    top: 2em;
+    right: 2em;
+    width: 260px;
+    min-height: 300px;
+    max-height: 80vh;
+    overflow-y: auto;
+    background: rgba(34,34,34,0.92);
+    color: #fff;
+    padding: 1.2em 1em 1em 1em;
+    margin: 0;
+    text-align: left;
+    z-index: 1000;
+    border-radius: 18px 18px 8px 8px;
+    box-shadow: 0 4px 24px #0008;
+    font-size: 1em;
+}
+#debug-panel form {
+    margin-bottom: 1em;
+}
+#debug-panel pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Professional touch */
+body {
+    background: linear-gradient(120deg, #f8fafc 0%, #e0e7ef 100%);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #222;
+    margin: 0;
+    padding: 0;
+}
+
+#game-container {
+    background: #fff;
+    max-width: 340px;
+    margin: 2em auto;
+    padding: 1.2em 1em 1em 1em;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px #0001;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7em;
+}
+
+h1 {
+    text-align: center;
+    margin: 0 0 0.5em 0;
+    font-size: 1.3em;
+    letter-spacing: 0.5px;
+}
+
+#score, #attempts {
+    font-size: 0.98em;
+    margin-bottom: 0.2em;
+}
+
+#message {
+    background: #f1f5f9;
+    color: #1e293b;
+    border-left: 4px solid #2563eb;
+    padding: 0.5em 0.7em;
+    border-radius: 4px;
+    font-size: 0.98em;
+    margin-bottom: 0.3em;
+}
+
+#guess-log {
+    background: #f8fafc;
+    border-radius: 4px;
+    padding: 0.4em 0.7em;
+    font-size: 0.95em;
+    color: #334155;
+    margin-bottom: 0.3em;
+    min-height: 1.5em;
+}
+
+#guess-form {
+    display: flex;
+    gap: 0.5em;
+    align-items: center;
+}
+
+#guess-form input[type="number"] {
+    flex: 1;
+    font-size: 1em;
+    padding: 0.3em;
+}
+
+#guess-form button {
+    padding: 0.3em 0.8em;
+    font-size: 1em;
+    border-radius: 4px;
+}
+
+a {
+    color: #2563eb;
+    text-decoration: none;
+    font-size: 0.95em;
+    margin: 0 0.3em;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 400px) {
+    #game-container {
+        max-width: 98vw;
+        padding: 0.5em;
+    }
+    h1 {
+        font-size: 1em;
+    }
+}
+
+/* ...existing code... */

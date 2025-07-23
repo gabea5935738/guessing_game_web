@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div id="game-container">
+        <h1>Shop</h1>
+        <div>Your Score: {{ score }}</div>
+        {% if message %}
+            <div id="message">{{ message }}</div>
+        {% endif %}
+        <h2>Inventory</h2>
+        <ul>
+            <li>Extra Guesses: {{ inventory.extra_guess }}</li>
+            <li>Reveal Range: {{ inventory.reveal_range }}</li>
+            <li>Hints: {{ inventory.hint }}</li>
+            <li>Score Multipliers: {{ inventory.score_multiplier }}</li>
+        </ul>
+        <h2>Buy Items</h2>
+        <form method="POST">
+            <button type="submit" name="item" value="extra_guess">Buy Extra Guess (50 points)</button>
+        </form>
+        <form method="POST">
+            <button type="submit" name="item" value="reveal_range">Buy Reveal Range (20 points)</button>
+        </form>
+        <form method="POST">
+            <button type="submit" name="item" value="hint">Buy Hint (30 points)</button>
+        </form>
+        <form method="POST">
+            <button type="submit" name="item" value="score_multiplier">Buy Score Multiplier(80 points)</button>
+        </form>
+        <div style="margin-top:1em;">
+            <a href="{{ url_for('game') }}">Back to Game</a>
+        </div>
+    </div>
+    {% if session.get('debug') %}
+      <div id="debug-panel">
+        <strong>DEBUG MODE ON</strong><br>
+        <form method="post" action="/set_correct_number" style="margin:1em 0;">
+            <input type="number" name="correct_number" placeholder="Set correct number" required>
+            <button type="submit">Set Correct Number</button>
+        </form>
+        <form method="post" action="/force_next_round" style="margin:1em 0;">
+            <button type="submit">Force Next Round</button>
+        </form>
+        <form method="post" action="/set_score" style="margin:1em 0;">
+            <input type="number" name="score" placeholder="Set score" required>
+            <button type="submit">Set Score</button>
+        </form>
+        <form method="post" action="/goto_page" style="margin:1em 0;">
+            <input type="text" name="page" placeholder="Route (e.g. /, /game)" required>
+            <button type="submit">Go To Page</button>
+        </form>
+        <pre>{{ session | pprint }}</pre>
+      </div>
+    {% endif %}
+</body>
+</html> 

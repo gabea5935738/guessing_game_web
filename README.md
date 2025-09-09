@@ -1,0 +1,1 @@
+Hello welcome to Genaric Number Guessing Game at the moment I do not have an executable if you would like to play, run the python file in any python3 editor, then just go to the IP that the code returns!

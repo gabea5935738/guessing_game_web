@@ -31,25 +31,38 @@
         window.onload = showCustom;
     </script>
     {% if session.get('debug') %}
-      <div id="debug-panel">
-        <strong>DEBUG MODE ON</strong><br>
-        <form method="post" action="/set_correct_number" style="margin:1em 0;">
-            <input type="number" name="correct_number" placeholder="Set correct number" required>
-            <button type="submit">Set Correct Number</button>
+            <div id="debug-panel">
+                <strong>DEBUG MODE ON</strong><br>
+        <form method="post" action="/set_var" style="margin:1em 0;">
+            <input type="text" name="assignment" placeholder="var = value" required style="width:120px;">
+            <button type="submit">Set Variable</button>
         </form>
-        <form method="post" action="/force_next_round" style="margin:1em 0;">
-            <button type="submit">Force Next Round</button>
-        </form>
-        <form method="post" action="/set_score" style="margin:1em 0;">
-            <input type="number" name="score" placeholder="Set score" required>
-            <button type="submit">Set Score</button>
-        </form>
-        <form method="post" action="/goto_page" style="margin:1em 0;">
-            <input type="text" name="page" placeholder="Route (e.g. /, /game)" required>
-            <button type="submit">Go To Page</button>
-        </form>
-        <pre>{{ session | pprint }}</pre>
-      </div>
+                <form method="post" action="/force_next_round" style="margin:1em 0;">
+                        <button type="submit">Force Next Round</button>
+                </form>
+                <form method="post" action="/goto_page" style="margin:1em 0;">
+                        <input type="text" name="page" placeholder="Route (e.g. /, /game)" required>
+                        <button type="submit">Go To Page</button>
+                </form>
+                <pre>{{ session | pprint }}</pre>
+                <div style="margin-top:1em; background:#222; color:#fff; padding:0.7em; border-radius:8px;">
+                    <strong>All Routes:</strong>
+                    <ul style="font-size:0.97em; margin:0; padding-left:1.2em;">
+                        {% for route in all_routes %}
+                            <li><code>{{ route.rule }}</code> ({{ route.methods }}) &rarr; <b>{{ route.endpoint }}</b></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            <script>
+                function updateDebugScore() {
+                        fetch("/idle_score").then(r => r.json()).then(data => {
+                                let debugScore = document.getElementById("debug-live-score");
+                                if (debugScore) debugScore.textContent = "Score: " + data.score;
+                        });
+                }
+                setInterval(updateDebugScore, 1000);
+            </script>
     {% endif %}
 </body>
 </html>

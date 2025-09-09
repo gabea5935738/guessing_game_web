@@ -1,46 +1,91 @@
-from flask import Flask, render_template, request, session, redirect, url_for
+from flask import Flask, render_template, request, session, redirect, url_for, jsonify
 from random import randint
 from time import sleep
 
-app = Flask(__name__)                       # Create Flask app
-app.secret_key = 'your_secret_key'          # Needed to use session data (like saving variables across pages)
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'
 app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
 app.config['SESSION_COOKIE_SECURE'] = False
+
+# Debug route to set any session variable from the debug panel
+@app.route("/set_var", methods=["POST"])
+def set_var():
+    if not session.get('debug'):
+        return "Access denied", 403
+    assignment = request.form.get("assignment", "")
+    if '=' in assignment:
+        var, val = assignment.split('=', 1)
+        var = var.strip()
+        val = val.strip()
+        # Try to convert to int, float, or leave as string
+        try:
+            if val.lower() == 'true':
+                val = True
+            elif val.lower() == 'false':
+                val = False
+            else:
+                val = int(val)
+        except ValueError:
+            try:
+                val = float(val)
+            except ValueError:
+                pass
+        session[var] = val
+        session.modified = True
+    return redirect(request.referrer or "/")
+def get_all_routes():
+    # Returns a list of (rule, endpoint, methods)
+    routes = []
+    for rule in app.url_map.iter_rules():
+        # Exclude static files
+        if rule.endpoint != 'static':
+            routes.append({
+                'rule': str(rule),
+                'endpoint': rule.endpoint,
+                'methods': ','.join(sorted(rule.methods - {'HEAD', 'OPTIONS'}))
+            })
+
+    return routes
+
+# API endpoint for live idle score updates
+@app.route("/idle_score")
+def idle_score():
+    apply_idle_income()
+    return jsonify({
+        'score': session.get('score', 0),
+        'idle_generator': session.get('idle_generator', 0)
+    })
 
 
 @app.route("/", methods=["GET", "POST"])    # Set route for homepage, allow form POSTs
 def select_difficulty():
+    apply_idle_income()
+    if 'extra_guess' not in session:
+        session['extra_guess'] = 0
     if request.method == "POST":
         difficulty = request.form.get("difficulty")
         session['difficulty'] = difficulty
 
-        # Set number range and max_attempts based on difficulty
+        # Set number range and max_attempts based on difficulty, always adding extra_guess
+        extra = session.get('extra_guess', 0)
         if difficulty == "easy":
             session['min_num'] = 1
             session['max_num'] = 10
-            if session['extra_guess'] > 0:
-                session['max_attempts'] = 3 + session['extra_guess']
-            else:
-                session['max_attempts'] = 3
+            session['max_attempts'] = 3 + extra
         elif difficulty == "medium":
             session['min_num'] = 1
             session['max_num'] = 50
-            if session['extra_guess'] > 0:
-                session['max_attempts'] = 5 + session['extra_guess']
-            else: session['max_attempts'] = 5
+            session['max_attempts'] = 5 + extra
         elif difficulty == "hard":
             session['min_num'] = 1
             session['max_num'] = 100
-            if session['extra_guess'] > 0:
-                session['max_attempts'] = 10 + session['extra_guess']
-            else: session['max_attempts'] = 10
+            session['max_attempts'] = 10 + extra
         elif difficulty == "custom":
             try:
                 min_num = int(request.form.get("min_num", 1))
                 max_num = int(request.form.get("max_num", 100))
-                if session['extra_guess'] > 0:
-                    max_attempts = int(request.form.get("max_attempts", 10)) + session['extra_guess']
-                else: max_attempts = int(request.form.get("max_attempts", 10))
+                base_attempts = int(request.form.get("max_attempts", 10))
+                max_attempts = base_attempts + extra
                 # Validation
                 if min_num >= max_num or min_num < 1 or max_num < 1 or max_attempts < 1:
                     raise ValueError
@@ -50,23 +95,40 @@ def select_difficulty():
             except ValueError:
                 session["min_num"] = 1
                 session["max_num"] = 100
-                if session['extra_guess'] > 0:
-                    session["max_attempts"] = 10 + session['extra_guess']
-                else: session["max_attempts"] = 10
+                session["max_attempts"] = 10 + extra
         else:
             session['min_num'] = 1
             session['max_num'] = 100
-            if session['extra_guess'] > 0:
-                session['max_attempts'] = 10 + session['extra_guess']
-            else: session['max_attempts'] = 10
+            session['max_attempts'] = 10 + extra
 
         return redirect(url_for("game"))
     
-    return render_template("difficulty.html")
+    return render_template("difficulty.html", all_routes=get_all_routes())
 
+
+import time
+
+def apply_idle_income():
+    # Award idle points based on time elapsed and idle_generators owned
+    idle_generators = session.get('idle_generator', 0)
+    if idle_generators > 0:
+        now = int(time.time())
+        last = session.get('idle_last_time', now)
+        elapsed = now - last
+        if elapsed > 0:
+            # 1 point per generator per second
+            points = elapsed * idle_generators
+            if points > 0:
+                session['score'] = session.get('score', 0) + points
+                session['idle_last_time'] = last + elapsed
+        else:
+            session['idle_last_time'] = now
+    else:
+        session['idle_last_time'] = int(time.time())
 
 @app.route("/game", methods=["GET", "POST"])    # Set route for homepage, allow form POSTs
 def game():
+    apply_idle_income()
     min_num = session.get('min_num', 1)
     max_num = session.get('max_num', 100)
     round_over = session.get('round_over', False)
@@ -77,83 +139,131 @@ def game():
             session['score'] = 0
         session['attempts'] = 0
         session['log'] = []
+        session['max_attempts'] = session.get('base_max_attempts', session.get('max_attempts', 10))
 
     message = ""
+    # Prepare item usage flags
+    hint_used = False
+    multiplier_used = False
 
     if request.method == "POST":
-        if 'next_round' in request.form:
+        # Handle item usage
+        
+        if 'use_hint' in request.form and session.get('hint', 0) > 0:
+            correct = session['correct_number']
+            hint_type = 'even' if correct % 2 == 0 else 'odd'
+            message = f"Hint: The number is {hint_type}."
+            session['hint'] -= 1
+            hint_used = True
+        elif 'use_multiplier' in request.form and session.get('score_multiplier', 0) > 0:
+            session['score_multiplier_active'] = True
+            session['score_multiplier'] -= 1
+            message = "Score multiplier activated for your next correct guess!"
+            multiplier_used = True
+        elif 'use_extra_guess' in request.form and session.get('extra_guess', 0) > 0:
+            session['max_attempts'] = session.get('max_attempts', 10) + 1
+            session['extra_guess'] -= 1
+            message = f"Extra guess used! Max guesses this round: {session['max_attempts']}"
+        elif 'next_round' in request.form:
             # User clicked "Next Round"
             session['correct_number'] = randint(min_num, max_num)
             session['attempts'] = 0
             session['log'] = []
-            session['round_over'] = False
-            return redirect(url_for("game"))
-        try:
-            if round_over:
-                message = "Click 'Next Round' to continue."
+            # Reset max_attempts to base for new round
+            difficulty = session.get('difficulty', 'easy')
+            if difficulty == "easy":
+                base = 3
+            elif difficulty == "medium":
+                base = 5
+            elif difficulty == "hard":
+                base = 10
+            elif difficulty == "custom":
+                base = int(request.form.get("max_attempts", session.get('base_max_attempts', 10)))
             else:
-                guess = int(request.form['guess'])    # Get number from form
-                # Check if guess is within range
-                if guess < min_num or guess > max_num:
-                    message = f"Hint: Please enter a number between {min_num} and {max_num}."
-                # Check for duplicate guess
-                elif guess in session['log']:
-                    message = "Hint: You've already tried this number! Try something new."
-                else:
-                    session['log'].append(guess)          # Save guess to log
-                    session['attempts'] += 1
-                    correct = session['correct_number']
-
-                    if guess < correct:
-                        message = "Too low! Try again."
-                    elif guess > correct:
-                        message = "Too high! Try again."
+                base = 10
+            session['max_attempts'] = base
+            session['base_max_attempts'] = base
+            session['round_over'] = False
+            session['score_multiplier_active'] = False
+            return redirect(url_for("game"))
+        else:
+            guess_val = request.form.get('guess')
+            try:
+                if round_over:
+                    message = "Click 'Next Round' to continue."
+                elif guess_val is not None:
+                    guess = int(guess_val)    # Get number from form
+                    # Check if guess is within range
+                    if guess < min_num or guess > max_num:
+                        message = f"Hint: Please enter a number between {min_num} and {max_num}."
+                    # Check for duplicate guess
+                    elif guess in session['log']:
+                        message = "Hint: You've already tried this number! Try something new."
                     else:
-                        # Award points based on difficulty
-                        difficulty = session.get('difficulty', 'easy')
-                        if difficulty == "easy":
-                            session['score'] += 10
-                        elif difficulty == "medium":
-                            session['score'] += 25
-                        elif difficulty == "hard":
-                            session['score'] += 50
-                        elif difficulty == "custom":
-                            max_attempts = session.get('max_attempts', 10)
-                            session['score'] += int((max_num - min_num + 1) / max_attempts)
-                        message = f"Correct! The number was {correct}."
-                        session['correct_number'] = randint(min_num, max_num)   # Start new round
-                        session['attempts'] = 0
-                        session['log'] = []
-                        round_over = True
-
-                    if session['attempts'] >= session.get('max_attempts', 10):  # If too many attempts
-                        # Award points based on how close the last guess was
-                        difficulty = session.get('difficulty', 'easy')
+                        session['log'].append(guess)          # Save guess to log
+                        session['attempts'] += 1
                         correct = session['correct_number']
-                        distance = abs(guess - correct)
-                        if difficulty == "easy":
-                            points = 10 - distance
-                        elif difficulty == "medium":
-                            points = 25 - 2 * distance
-                        elif difficulty == "hard":
-                            points = 50 - 4 * distance
-                        elif difficulty == "custom":
-                            max_num = session.get('max_num', 100)
-                            min_num = session.get('min_num', 1)
-                            points = int((max_num - min_num + 1) / (distance + 1))
-                            message = f"Game over! The correct number was {correct}. You scored {points} points."
-                        else:
-                            points = 1
-                        points = max(points, 0)  # Prevent negative points
-                        session['score'] += points
 
-                        message = f"Game over! The correct number was {correct}. Your last guess was {guess}. You scored {points} points this round."
-                        session['correct_number'] = randint(min_num, max_num)
-                        session['attempts'] = 0
-                        session['log'] = []
-                        round_over = True
-        except ValueError:
-            message = "Please enter a valid number."
+                        if guess < correct:
+                            message = "Too low! Try again."
+                        elif guess > correct:
+                            message = "Too high! Try again."
+                        else:
+                            # Award points based on difficulty
+                            difficulty = session.get('difficulty', 'easy')
+                            multiplier = 1
+                            if session.get('score_multiplier', 0) > 0:
+                                multiplier = 2
+                            if difficulty == "easy":
+                                session['score'] += 10 * multiplier
+                            elif difficulty == "medium":
+                                session['score'] += 25 * multiplier
+                            elif difficulty == "hard":
+                                session['score'] += 50 * multiplier
+                            elif difficulty == "custom":
+                                max_attempts = session.get('max_attempts', 10)
+                                session['score'] += int((max_num - min_num + 1) / max_attempts) * multiplier
+                            message = f"Correct! The number was {correct}."
+                            if multiplier > 1:
+                                message += " (Score Multiplied!)"
+                            session['correct_number'] = randint(min_num, max_num)   # Start new round
+                            session['attempts'] = 0
+                            session['log'] = []
+                            round_over = True
+
+                        if session['attempts'] >= session.get('max_attempts', 10):  # If too many attempts
+                            # Award points based on how close the last guess was
+                            difficulty = session.get('difficulty', 'easy')
+                            correct = session['correct_number']
+                            distance = abs(guess - correct)
+                            multiplier = 1
+                            if session.get('score_multiplier', 0) > 0:
+                                multiplier = 2
+                            if difficulty == "easy":
+                                points = (10 - distance) * multiplier
+                            elif difficulty == "medium":
+                                points = (25 - 2 * distance) * multiplier
+                            elif difficulty == "hard":
+                                points = (50 - 4 * distance) * multiplier
+                            elif difficulty == "custom":
+                                max_num = session.get('max_num', 100)
+                                min_num = session.get('min_num', 1)
+                                points = int((max_num - min_num + 1) / (distance + 1)) * multiplier
+                                message = f"Game over! The correct number was {correct}. You scored {points} points."
+                            else:
+                                points = 1 * multiplier
+                            points = max(points, 0)  # Prevent negative points
+                            session['score'] += points
+
+                            message = f"Game over! The correct number was {correct}. Your last guess was {guess}. You scored {points} points this round."
+                            if multiplier > 1:
+                                message += " (Score Multiplied!)"
+                            session['correct_number'] = randint(min_num, max_num)
+                            session['attempts'] = 0
+                            session['log'] = []
+                            round_over = True
+            except ValueError:
+                message = "Please enter a valid number."
 
 
     return render_template("index.html",    # Show page with updated info
@@ -164,52 +274,99 @@ def game():
                             min_num=min_num,
                             max_num=max_num,
                             max_attempts=session.get('max_attempts', 10),
-                            round_over=session.get('round_over', False))
+                            round_over=session.get('round_over', False),
+                            hint=session.get('hint', 0),
+                            score_multiplier=session.get('score_multiplier', 0),
+                            score_multiplier_active=session.get('score_multiplier_active', False),
+                            extra_guess=session.get('extra_guess', 0),
+                            all_routes=get_all_routes())
 
 
 @app.route("/shop", methods=["GET", "POST"])
 def shop():
+    apply_idle_income()
     score = session.get('score', 0)
     message = ""
     # Track quantities for items
-    item_costs = {
+    base_costs = {
         "extra_guess": 50,
-        "reveal_range": 20,
         "hint": 30,
-        "score_multiplier": 80
+        "score_multiplier": 80,
+        "idle_generator": 100
     }
+
+    # Calculate dynamic costs based on how many of each item have been purchased
+    item_costs = {}
+    for item, base in base_costs.items():
+        owned = session.get(item, 0)
+        # Now: cost increases by 5% per item owned
+        item_costs[item] = int(base * (1.05 ** owned))
     # Initialize inventory if not present
-    for item in item_costs:
+    for item in base_costs:
         if item not in session:
             session[item] = 0
+    # Idle generator: initialize last time if not present
+    if 'idle_last_time' not in session:
+        session['idle_last_time'] = int(time.time())
+
     if request.method == "POST":
+        apply_idle_income()
         item = request.form.get("item")
-        cost = item_costs.get(item)
+        # Calculate cost BEFORE purchase
+        cost = int(base_costs[item] * (1.05 ** session.get(item, 0))) if item in base_costs else None
         if cost and score >= cost:
             session['score'] -= cost
             session[item] = session.get(item, 0) + 1  # Increment count
             message = f"You bought {item.replace('_', ' ').title()}!"
+            # If extra_guess was bought, update max_attempts immediately
+            if item == "extra_guess":
+                difficulty = session.get('difficulty', 'easy')
+                extra = session.get('extra_guess', 0)
+                if difficulty == "easy":
+                    session['max_attempts'] = 3 + extra
+                elif difficulty == "medium":
+                    session['max_attempts'] = 5 + extra
+                elif difficulty == "hard":
+                    session['max_attempts'] = 10 + extra
+                elif difficulty == "custom":
+                    base = int(session.get('custom_base_attempts', session.get('max_attempts', 10) - extra))
+                    session['max_attempts'] = base + extra
+                else:
+                    session['max_attempts'] = 10 + extra
         else:
             message = "Not enough points or invalid item."
-    # Pass inventory to template
-    inventory = {item: session.get(item, 0) for item in item_costs}
+
+        # After purchase, recalculate item_costs for updated inventory
+        item_costs = {}
+        for item_name, base in base_costs.items():
+            owned = session.get(item_name, 0)
+            item_costs[item_name] = int(base * (1.05 ** owned))
+
+    # Pass inventory and costs to template
+    inventory = {item: session.get(item, 0) for item in base_costs}
     return render_template("shop.html", 
                             score=session.get('score', 0),
                             message=message,
-                            inventory=inventory)
+                            inventory=inventory,
+                            item_costs=item_costs,
+                            all_routes=get_all_routes())
 
 @app.route("/reset")                        #  Seperate route to clear/reset game
 def reset():
+    apply_idle_income()
     session.clear()                         # Remove all saved session data
     return redirect("/")                    # Go back to homepage
 
 @app.route("/change_difficulty")
 def change_difficulty():
-    # Keep score and debug, clear round/session variables
+    apply_idle_income()
+    # Keep score, debug, and extra_guess, clear other session variables
     score = session.get('score', 0)
     debug = session.get('debug', False)
+    extra_guess = session.get('extra_guess', 0)
     session.clear()
     session['score'] = score
+    session['extra_guess'] = extra_guess
     if debug:
         session['debug'] = True
     return redirect("/")

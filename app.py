@@ -7,6 +7,19 @@ app.secret_key = 'your_secret_key'
 app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
 app.config['SESSION_COOKIE_SECURE'] = False
 
+@app.before_request
+def session_set_cleanup():
+    def convert_sets(obj):
+        if isinstance(obj, set):
+            return list(obj)
+        elif isinstance(obj, dict):
+            return {k: convert_sets(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_sets(i) for i in obj]
+        else:
+            return obj
+    for k in list(session.keys()):
+        session[k] = convert_sets(session[k])
 # Debug route to set any session variable from the debug panel
 @app.route("/set_var", methods=["POST"])
 def set_var():
@@ -128,6 +141,22 @@ def apply_idle_income():
 
 @app.route("/game", methods=["GET", "POST"])    # Set route for homepage, allow form POSTs
 def game():
+    # Recursively convert all sets in the session to lists to avoid JSON serialization errors
+    def convert_sets(obj):
+        if isinstance(obj, set):
+            return list(obj)
+        elif isinstance(obj, dict):
+            return {k: convert_sets(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_sets(i) for i in obj]
+        else:
+            return obj
+    for k in list(session.keys()):
+        session[k] = convert_sets(session[k])
+    # Convert any sets in session to lists to avoid JSON serialization errors
+    for k in list(session.keys()):
+        if isinstance(session[k], set):
+            session[k] = list(session[k])
     apply_idle_income()
     min_num = session.get('min_num', 1)
     max_num = session.get('max_num', 100)
@@ -140,6 +169,24 @@ def game():
         session['attempts'] = 0
         session['log'] = []
         session['max_attempts'] = session.get('base_max_attempts', session.get('max_attempts', 10))
+    # Achievement tracking
+    if 'achievements' not in session:
+        session['achievements'] = []
+    # Convert old set to list if needed
+    if isinstance(session['achievements'], set):
+        session['achievements'] = list(session['achievements'])
+    if 'correct_total' not in session:
+        session['correct_total'] = 0
+    # First play achievement
+    ach = session.get('achievements', [])
+    # Convert to list if not already
+    if isinstance(ach, set):
+        ach = list(ach)
+    if isinstance(session['achievements'], set):
+        session['achievements'] = list(session['achievements'])
+    if 'First Play' not in ach:
+        ach.append('First Play')
+        session['achievements'] = ach
 
     message = ""
     # Prepare item usage flags
@@ -230,6 +277,26 @@ def game():
                             session['attempts'] = 0
                             session['log'] = []
                             round_over = True
+                            # Track correct guesses
+                            session['correct_total'] = session.get('correct_total', 0) + 1
+                            # Achievements
+                            ach = set(session.get('achievements', []))
+                            # Score achievements
+                            def add_ach(label, cond):
+                                if cond and label not in ach:
+                                    ach.append(label)
+                            add_ach('Score 100', session['score'] >= 100)
+                            add_ach('Score 1000', session['score'] >= 1000)
+                            add_ach('Score 5000', session['score'] >= 5000)
+                            add_ach('10 Correct Guesses', session['correct_total'] >= 10)
+                            add_ach('50 Correct Guesses', session['correct_total'] >= 50)
+                            add_ach('100 Correct Guesses', session['correct_total'] >= 100)
+                            add_ach('1000 Correct Guesses', session['correct_total'] >= 1000)
+                            add_ach('100 Extra Guesses Purchased', session.get('extra_guess', 0) >= 100)
+                            add_ach('100 Hints Purchased', session.get('hint', 0) >= 100)
+                            add_ach('100 Score Multipliers Purchased', session.get('score_multiplier', 0) >= 100)
+                            add_ach('100 Idle Generators Purchased', session.get('idle_generator', 0) >= 100)
+                            session['achievements'] = ach
 
                         if session['attempts'] >= session.get('max_attempts', 10):  # If too many attempts
                             # Award points based on how close the last guess was
@@ -266,6 +333,18 @@ def game():
                 message = "Please enter a valid number."
 
 
+    # Final safeguard: convert all sets in session to lists before returning
+    def convert_sets(obj):
+        if isinstance(obj, set):
+            return list(obj)
+        elif isinstance(obj, dict):
+            return {k: convert_sets(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_sets(i) for i in obj]
+        else:
+            return obj
+    for k in list(session.keys()):
+        session[k] = convert_sets(session[k])
     return render_template("index.html",    # Show page with updated info
                             message=message,
                             score=session.get('score', 0),
@@ -279,6 +358,7 @@ def game():
                             score_multiplier=session.get('score_multiplier', 0),
                             score_multiplier_active=session.get('score_multiplier_active', False),
                             extra_guess=session.get('extra_guess', 0),
+                            achievements=session.get('achievements', []),
                             all_routes=get_all_routes())
 
 

@@ -5,6 +5,10 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <!-- Sound effects -->
+    <audio id="sound-correct" src="{{ url_for('static', filename='resources/correct-356013.mp3') }}" preload="auto"></audio>
+    <audio id="sound-incorrect" src="{{ url_for('static', filename='resources/wronganswer-37702.mp3') }}" preload="auto"></audio>
+    <audio id="sound-click" src="{{ url_for('static', filename='resources/mixkit-fast-double-click-on-mouse-275.wav') }}" preload="auto"></audio>
     <div id="game-container">
         <h1>Guess the Number</h1>
         <div id="score">Score: {{ score }}</div>
@@ -21,6 +25,31 @@
             });
         }
         setInterval(updateIdleScore, 1000);
+
+        // Play click sound on all button clicks
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('button').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.getElementById('sound-click').currentTime = 0;
+                    document.getElementById('sound-click').play();
+                });
+            });
+        });
+
+        // Play correct/incorrect sound based on message
+        document.addEventListener('DOMContentLoaded', function() {
+            const msg = document.getElementById('message');
+            if (msg) {
+                const text = msg.textContent || msg.innerText;
+                if (text.includes('Correct!')) {
+                    document.getElementById('sound-correct').currentTime = 0;
+                    document.getElementById('sound-correct').play();
+                } else if (text.toLowerCase().includes('too low') || text.toLowerCase().includes('too high') || text.toLowerCase().includes('game over')) {
+                    document.getElementById('sound-incorrect').currentTime = 0;
+                    document.getElementById('sound-incorrect').play();
+                }
+            }
+        });
         </script>
         {% if message %}
             <div id="message">{{ message }}</div>
@@ -29,7 +58,6 @@
             <strong>Guesses:</strong> {{ log|join(', ') if log else 'None yet' }}
         </div>
         <div id="item-actions" style="margin:0.7em 0 1em 0;">
-           
             <form method="POST" style="display:inline;">
                 <button type="submit" name="use_hint" {% if hint == 0 %}disabled{% endif %}>Hint ({{ hint }})</button>
             </form>
@@ -41,6 +69,16 @@
             <br>
             <span id="idle-gen-info" style="margin-left:1em; font-weight:bold; color:#2563eb;">Idle Generators: {{ session.get('idle_generator', 0) }} ({{ session.get('idle_generator', 0) }} pts/sec)</span>
         </div>
+        {% if achievements %}
+        <div id="achievements" style="margin:1em 0; padding:0.7em; background:#e0ffe0; border-radius:8px; color:#222;">
+            <strong>Achievements:</strong>
+            <ul style="margin:0.5em 0 0 1.2em;">
+                {% for ach in achievements %}
+                <li>{{ ach }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
         {% if round_over %}
             <form method="POST">
                 <button type="submit" name="next_round">Next Round</button>

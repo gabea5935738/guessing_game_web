@@ -513,5 +513,8 @@ def goto_page():
         page = "/" + page
     return redirect(page)
 
-if __name__ == "__main__":                  # Run app if this file is executed directly
-    app.run(debug=True)                    # Enable debug mode for easier development
+import os
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))  # Render provides PORT
+    app.run(host="0.0.0.0", port=port, debug=True)

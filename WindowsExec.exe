@@ -1,4 +1,0 @@
-import webbrowser
-py -m pip install pyinstaller --user
-py -m PyInstaller --onefile app.py
-webbrowser.open("https://127.0.0.1:500)

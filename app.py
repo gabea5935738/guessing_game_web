@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify
 from random import randint
-from time import sleep
+from time import time
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -119,13 +119,12 @@ def select_difficulty():
     return render_template("difficulty.html", all_routes=get_all_routes())
 
 
-import time
 
 def apply_idle_income():
     # Award idle points based on time elapsed and idle_generators owned
     idle_generators = session.get('idle_generator', 0)
     if idle_generators > 0:
-        now = int(time.time())
+        now = int(time())
         last = session.get('idle_last_time', now)
         elapsed = now - last
         if elapsed > 0:
@@ -137,7 +136,7 @@ def apply_idle_income():
         else:
             session['idle_last_time'] = now
     else:
-        session['idle_last_time'] = int(time.time())
+        session['idle_last_time'] = int(time())
 
 @app.route("/game", methods=["GET", "POST"])    # Set route for homepage, allow form POSTs
 def game():
@@ -400,7 +399,7 @@ def shop():
             session[item] = 0
     # Idle generator: initialize last time if not present
     if 'idle_last_time' not in session:
-        session['idle_last_time'] = int(time.time())
+        session['idle_last_time'] = int(time())
 
     if request.method == "POST":
         apply_idle_income()

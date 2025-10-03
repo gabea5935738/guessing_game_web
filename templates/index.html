@@ -8,7 +8,6 @@
     <!-- Sound effects -->
     <audio id="sound-correct" src="{{ url_for('static', filename='resources/correct-356013.mp3') }}" preload="auto"></audio>
     <audio id="sound-incorrect" src="{{ url_for('static', filename='resources/wronganswer-37702.mp3') }}" preload="auto"></audio>
-    <audio id="sound-click" src="{{ url_for('static', filename='resources/mixkit-fast-double-click-on-mouse-275.wav') }}" preload="auto"></audio>
     <div id="game-container">
         <h1>Guess the Number</h1>
         <div id="score">Score: {{ score }}</div>
@@ -25,16 +24,6 @@
             });
         }
         setInterval(updateIdleScore, 1000);
-
-        // Play click sound on all button clicks
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('button').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    document.getElementById('sound-click').currentTime = 0;
-                    document.getElementById('sound-click').play();
-                });
-            });
-        });
 
         // Play correct/incorrect sound based on message
         document.addEventListener('DOMContentLoaded', function() {
@@ -122,6 +111,7 @@
         <!-- Also update debug panel score if present
         function updateDebugScore() {
             fetch("/idle_score").then(r => r.json()).then(data => {
+            
                 let debugScore = document.getElementById("debug-live-score");
                 if (debugScore) debugScore.textContent = "Score: " + data.score;
             });

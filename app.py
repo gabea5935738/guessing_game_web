@@ -5,7 +5,7 @@ from time import sleep
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
-app.config['SESSION_COOKIE_SECURE'] = False
+app.config['SESSION_COOKIE_SECURE'] = True
 
 @app.before_request
 def session_set_cleanup():
@@ -73,14 +73,15 @@ def idle_score():
 @app.route("/", methods=["GET", "POST"])    # Set route for homepage, allow form POSTs
 def select_difficulty():
     apply_idle_income()
-    if 'extra_guess' not in session:
-        session['extra_guess'] = 0
+    if 'extra_guess_total' not in session:
+        session['extra_guess_total'] = 0
+    if 'extra_guess_available' not in session:
+        session['extra_guess_available'] = session['extra_guess_total']
     if request.method == "POST":
         difficulty = request.form.get("difficulty")
         session['difficulty'] = difficulty
 
-        # Set number range and max_attempts based on difficulty, always adding extra_guess
-        extra = session.get('extra_guess', 0)
+        extra = session.get('extra_guess_total', 0)
         if difficulty == "easy":
             session['min_num'] = 1
             session['max_num'] = 10
@@ -99,7 +100,6 @@ def select_difficulty():
                 max_num = int(request.form.get("max_num", 100))
                 base_attempts = int(request.form.get("max_attempts", 10))
                 max_attempts = base_attempts + extra
-                # Validation
                 if min_num >= max_num or min_num < 1 or max_num < 1 or max_attempts < 1:
                     raise ValueError
                 session["min_num"] = min_num
@@ -115,7 +115,7 @@ def select_difficulty():
             session['max_attempts'] = 10 + extra
 
         return redirect(url_for("game"))
-    
+
     return render_template("difficulty.html", all_routes=get_all_routes())
 
 
@@ -169,6 +169,8 @@ def game():
         session['attempts'] = 0
         session['log'] = []
         session['max_attempts'] = session.get('base_max_attempts', session.get('max_attempts', 10))
+        # Reset available extra guesses to total at new round
+        session['extra_guess_available'] = session.get('extra_guess_total', 0)
     # Achievement tracking
     if 'achievements' not in session:
         session['achievements'] = []
@@ -207,9 +209,9 @@ def game():
             session['score_multiplier'] -= 1
             message = "Score multiplier activated for your next correct guess!"
             multiplier_used = True
-        elif 'use_extra_guess' in request.form and session.get('extra_guess', 0) > 0:
+        elif 'use_extra_guess' in request.form and session.get('extra_guess_available', 0) > 0:
             session['max_attempts'] = session.get('max_attempts', 10) + 1
-            session['extra_guess'] -= 1
+            session['extra_guess_available'] -= 1
             message = f"Extra guess used! Max guesses this round: {session['max_attempts']}"
         elif 'next_round' in request.form:
             # User clicked "Next Round"
@@ -232,6 +234,8 @@ def game():
             session['base_max_attempts'] = base
             session['round_over'] = False
             session['score_multiplier_active'] = False
+            # Reset available extra guesses to total at new round
+            session['extra_guess_available'] = session.get('extra_guess_total', 0)
             return redirect(url_for("game"))
         else:
             guess_val = request.form.get('guess')
@@ -292,7 +296,7 @@ def game():
                             add_ach('50 Correct Guesses', session['correct_total'] >= 50)
                             add_ach('100 Correct Guesses', session['correct_total'] >= 100)
                             add_ach('1000 Correct Guesses', session['correct_total'] >= 1000)
-                            add_ach('100 Extra Guesses Purchased', session.get('extra_guess', 0) >= 100)
+                            add_ach('100 Extra Guesses Purchased', session.get('extra_guess_total', 0) >= 100)
                             add_ach('100 Hints Purchased', session.get('hint', 0) >= 100)
                             add_ach('100 Score Multipliers Purchased', session.get('score_multiplier', 0) >= 100)
                             add_ach('100 Idle Generators Purchased', session.get('idle_generator', 0) >= 100)
@@ -357,7 +361,8 @@ def game():
                             hint=session.get('hint', 0),
                             score_multiplier=session.get('score_multiplier', 0),
                             score_multiplier_active=session.get('score_multiplier_active', False),
-                            extra_guess=session.get('extra_guess', 0),
+                            extra_guess_total=session.get('extra_guess_total', 0),
+                            extra_guess_available=session.get('extra_guess_available', 0),
                             achievements=session.get('achievements', []),
                             all_routes=get_all_routes())
 
@@ -378,12 +383,20 @@ def shop():
     # Calculate dynamic costs based on how many of each item have been purchased
     item_costs = {}
     for item, base in base_costs.items():
-        owned = session.get(item, 0)
+        if item == "extra_guess":
+            owned = session.get('extra_guess_total', 0)
+        else:
+            owned = session.get(item, 0)
         # Now: cost increases by 5% per item owned
         item_costs[item] = int(base * (1.05 ** owned))
     # Initialize inventory if not present
     for item in base_costs:
-        if item not in session:
+        if item == "extra_guess":
+            if 'extra_guess_total' not in session:
+                session['extra_guess_total'] = 0
+            if 'extra_guess_available' not in session:
+                session['extra_guess_available'] = session['extra_guess_total']
+        elif item not in session:
             session[item] = 0
     # Idle generator: initialize last time if not present
     if 'idle_last_time' not in session:
@@ -396,12 +409,13 @@ def shop():
         cost = int(base_costs[item] * (1.05 ** session.get(item, 0))) if item in base_costs else None
         if cost and score >= cost:
             session['score'] -= cost
-            session[item] = session.get(item, 0) + 1  # Increment count
-            message = f"You bought {item.replace('_', ' ').title()}!"
-            # If extra_guess was bought, update max_attempts immediately
             if item == "extra_guess":
+                session['extra_guess_total'] = session.get('extra_guess_total', 0) + 1
+                session['extra_guess_available'] = session.get('extra_guess_available', 0) + 1
+                message = f"You bought Extra Guess!"
+                # Update max_attempts if in a round
                 difficulty = session.get('difficulty', 'easy')
-                extra = session.get('extra_guess', 0)
+                extra = session.get('extra_guess_total', 0)
                 if difficulty == "easy":
                     session['max_attempts'] = 3 + extra
                 elif difficulty == "medium":
@@ -413,17 +427,28 @@ def shop():
                     session['max_attempts'] = base + extra
                 else:
                     session['max_attempts'] = 10 + extra
+            else:
+                session[item] = session.get(item, 0) + 1  # Increment count
+                message = f"You bought {item.replace('_', ' ').title()}!"
         else:
             message = "Not enough points or invalid item."
 
         # After purchase, recalculate item_costs for updated inventory
         item_costs = {}
         for item_name, base in base_costs.items():
-            owned = session.get(item_name, 0)
+            if item_name == "extra_guess":
+                owned = session.get('extra_guess_total', 0)
+            else:
+                owned = session.get(item_name, 0)
             item_costs[item_name] = int(base * (1.05 ** owned))
 
     # Pass inventory and costs to template
-    inventory = {item: session.get(item, 0) for item in base_costs}
+    inventory = {}
+    for item in base_costs:
+        if item == "extra_guess":
+            inventory[item] = session.get('extra_guess_total', 0)
+        else:
+            inventory[item] = session.get(item, 0)
     return render_template("shop.html", 
                             score=session.get('score', 0),
                             message=message,

@@ -120,3 +120,18 @@ a:hover {
     }
 }
 
+.begin-btn {
+    width: 325px;
+    height: 100px; /* Adjust as needed */
+    background: url('/static/resources/images/BEGIN_Button.png') no-repeat center center;
+    background-size: contain;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 0;
+    display: inline-block;
+}
+.begin-btn:hover, .begin-btn:focus {
+    background-image: url('/static/resources/images/BEGIN_Button(hover).png');
+}
+

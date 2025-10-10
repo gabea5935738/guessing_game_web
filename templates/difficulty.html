@@ -3,6 +3,18 @@
 <head>
     <title>Select Difficulty</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        button, button:focus, button:active, button:focus-visible {
+            outline: none !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: none;
+        }
+        button:focus {
+            outline: none;
+            box-shadow: none;
+        }
+    </style>
 </head>
 <body>
     <div id="game-container">
@@ -19,7 +31,7 @@
                 <label>Max: <input type="number" name="max_num" value="100" min="1" required></label>
                 <label>Max Guesses: <input type="number" name="max_attempts" value="10" min="1" required></label>
             </div>
-            <button type="submit" style="margin-top:1em;">Start Game</button>
+            <button type="submit" class="begin-btn"></button>
         </form>
     </div>
     <script>

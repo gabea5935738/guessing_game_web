@@ -59,6 +59,10 @@ def get_all_routes():
             })
 
     return routes
+    
+@app.route("/ping")    
+def ping():
+    return "", 204
 
 # API endpoint for live idle score updates
 @app.route("/idle_score")

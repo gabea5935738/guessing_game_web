@@ -409,7 +409,7 @@ def shop():
         apply_idle_income()
         item = request.form.get("item")
         # Calculate cost BEFORE purchase
-        cost = int(base_costs[item] * (1.05 ** session.get(item, 0))) if item in base_costs else None
+        cost = int(base_costs[item] * (1.15 ** session.get(item, 0))) if item in base_costs else None
         if cost and score >= cost:
             session['score'] -= cost
             if item == "extra_guess":
@@ -480,10 +480,19 @@ def change_difficulty():
     return redirect("/")
 
 
+def get_debug_key():
+    try:
+        with open('.debug_key') as f:
+            return f.read().strip()
+    except Exception:
+        return None
+
+DEBUG_KEY = get_debug_key()
+
 @app.route("/debug")
 def debug():
     secret = request.args.get("key")
-    if secret == "316497":
+    if secret == DEBUG_KEY:
         session['debug'] = True
         session.modified = True  # Ensure session is saved before redirect
         return '''

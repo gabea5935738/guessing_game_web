@@ -6,8 +6,8 @@
 </head>
 <body>
     <!-- Sound effects -->
-    <audio id="sound-correct" src="{{ url_for('static', filename='resources/correct-356013.mp3') }}" preload="auto"></audio>
-    <audio id="sound-incorrect" src="{{ url_for('static', filename='resources/wronganswer-37702.mp3') }}" preload="auto"></audio>
+    <audio id="sound-correct" src="{{ url_for('static', filename='resources/sounds/correct-buzzer.mp3') }}" preload="auto"></audio>
+    <audio id="sound-incorrect" src="{{ url_for('static', filename='resources/sounds/wronganswer-buzzer.mp3') }}" preload="auto"></audio>
     <div id="game-container">
         <h1>Guess the Number</h1>
         <div id="score">Score: {{ score }}</div>

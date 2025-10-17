@@ -44,7 +44,14 @@
             <div id="message">{{ message }}</div>
         {% endif %}
         <div id="guess-log">
-            <strong>Guesses:</strong> {{ log|join(', ') if log else 'None yet' }}
+            <strong>Guesses:</strong>
+            {% if log %}
+                {% for guess, arrow in log %}
+                    {{ guess }}{{ arrow }}{% if not loop.last %}, {% endif %}
+                {% endfor %}
+            {% else %}
+                None yet
+            {% endif %}
         </div>
         <div id="item-actions" style="margin:0.7em 0 1em 0;">
             <form method="POST" style="display:inline;">
@@ -110,7 +117,7 @@
       </div>
         <!-- Also update debug panel score if present
         function updateDebugScore() {
-            fetch("/idle_score").then(r => r.json()).then(data => {
+            fetch("/idle_score").then r => r.json()).then(data => {
             
                 let debugScore = document.getElementById("debug-live-score");
                 if (debugScore) debugScore.textContent = "Score: " + data.score;

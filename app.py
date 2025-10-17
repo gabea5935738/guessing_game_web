@@ -254,15 +254,19 @@ def game():
                     elif guess in session['log']:
                         message = "Hint: You've already tried this number! Try something new."
                     else:
-                        session['log'].append(guess)          # Save guess to log
                         session['attempts'] += 1
                         correct = session['correct_number']
 
                         if guess < correct:
                             message = "Too low! Try again."
+                            session['log'].append((guess, "↑"))
                         elif guess > correct:
                             message = "Too high! Try again."
+                            session['log'].append((guess, "↓"))
                         else:
+                            # Correct guess
+                            message = f"Correct! The number was {correct}."
+                            session['log'].append((guess, ""))
                             # Award points based on difficulty
                             difficulty = session.get('difficulty', 'easy')
                             multiplier = 1

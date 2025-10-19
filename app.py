@@ -1,6 +1,11 @@
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify
 from random import randint
 from time import time
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -484,14 +489,8 @@ def change_difficulty():
     return redirect("/")
 
 
-def get_debug_key():
-    try:
-        with open('.debug_key') as f:
-            return f.read().strip()
-    except Exception:
-        return None
 
-DEBUG_KEY = get_debug_key()
+DEBUG_KEY = os.getenv("DEBUG_KEY")
 
 @app.route("/debug")
 def debug():

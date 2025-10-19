@@ -296,7 +296,7 @@ def game():
                             # Track correct guesses
                             session['correct_total'] = session.get('correct_total', 0) + 1
                             # Achievements
-                            ach = set(session.get('achievements', []))
+                            ach = session.get('achievements', [])
                             # Score achievements
                             def add_ach(label, cond):
                                 if cond and label not in ach:

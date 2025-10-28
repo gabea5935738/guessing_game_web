@@ -19,6 +19,7 @@ def post_difficulty(client, difficulty):
     """Helper to post a difficulty selection."""
     return client.post('/', data={'difficulty': difficulty}, follow_redirects=True)
 
+@pytest.mark.critical
 @pytest.mark.parametrize("route,expected", [
     ("/", b"Select"),
     ("/shop", b"Shop"),
@@ -29,18 +30,21 @@ def test_routes_load(client, route, expected):
     assert response.status_code == 200
     assert expected in response.data or b'difficulty' in response.data or b'buy' in response.data
 
+@pytest.mark.critical
 def test_reset_route(client):
     """Test that the reset route clears session and redirects to homepage."""
     response = client.get('/reset', follow_redirects=True)
     assert response.status_code == 200
     assert b'Select' in response.data or b'difficulty' in response.data
 
+@pytest.mark.critical
 def test_post_difficulty_sets_session(client):
     """Test that posting a difficulty sets up the game session."""
     response = post_difficulty(client, 'easy')
     assert response.status_code == 200
     assert b'guess' in response.data or b'number' in response.data
 
+@pytest.mark.extensive
 class TestGame:
     def test_game_page_loads(self, client):
         """Test that the game page loads after selecting a difficulty."""

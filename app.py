@@ -102,7 +102,7 @@ def select_difficulty():
         elif difficulty == "hard":
             session['min_num'] = 1
             session['max_num'] = 100
-            session['max_attempts'] = 10 + extra
+            session['max_attempts'] = 7 + extra
         elif difficulty == "custom":
             try:
                 min_num = int(request.form.get("min_num", 1))
@@ -233,7 +233,7 @@ def game():
             elif difficulty == "medium":
                 base = 5
             elif difficulty == "hard":
-                base = 10
+                base = 7
             elif difficulty == "custom":
                 base = int(request.form.get("max_attempts", session.get('base_max_attempts', 10)))
             else:
@@ -433,7 +433,7 @@ def shop():
                 elif difficulty == "medium":
                     session['max_attempts'] = 5 + extra
                 elif difficulty == "hard":
-                    session['max_attempts'] = 10 + extra
+                    session['max_attempts'] = 7  + extra
                 elif difficulty == "custom":
                     base = int(session.get('custom_base_attempts', session.get('max_attempts', 10) - extra))
                     session['max_attempts'] = base + extra

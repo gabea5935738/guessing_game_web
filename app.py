@@ -7,8 +7,10 @@ import os
 # Load environment variables from .env file
 load_dotenv()
 
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
+
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = FLASK_SECRET_KEY
 app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
 app.config['SESSION_COOKIE_SECURE'] = True
 

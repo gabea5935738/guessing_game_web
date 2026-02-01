@@ -1,5 +1,7 @@
 <h1 align="center" id="title">Number Guessing Game</h1>
 
+<h2 align="center">Please not this project has been archived and is no longer being hosted due to burn out</h2>
+
 <p id="description">Hello welcome to my Number Guessing Game if you would like to lay now press</p>
 
 <h2>🚀 Demo</h2>
